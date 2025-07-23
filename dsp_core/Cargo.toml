@@ -59,6 +59,8 @@ libc = "0.2"
 candle-core = { version = "0.4", optional = true }
 candle-nn = { version = "0.4", optional = true }
 candle-transformers = { version = "0.4", optional = true }
+# Pin half crate to compatible version with candle-core's rand 0.8.5
+half = { version = "=2.3.1", optional = true }
 
 # Linux специфичные зависимости (уже включены в cpal, но можем добавить прямую поддержку)
 [target.'cfg(target_os = "linux")'.dependencies]
@@ -77,5 +79,5 @@ windows = { version = "0.54", features = [
 [features]
 default = ["apple-silicon"]
 wasm = ["wasm-bindgen", "js-sys", "web-sys"]
-ai-effects = ["candle-core", "candle-nn", "candle-transformers"]
+ai-effects = ["candle-core", "candle-nn", "candle-transformers", "half"]
 apple-silicon = []  # Включает оптимизации для M1/M2/M3
