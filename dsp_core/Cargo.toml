@@ -2,6 +2,7 @@
 name = "dsp_core"
 version = "0.1.0"
 edition = "2021"
+resolver = "2"
 
 # Для создания нативной библиотеки, которую можно вызывать из других языков
 [lib]
@@ -31,6 +32,12 @@ atomic_float = "0.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
+# РЕШЕНИЕ для ошибки bf16 trait bound:
+# Проблема: разные версии rand (0.8 и 0.9) вызывали конфликты trait implementations
+# Решение: принудительно используем rand 0.8 и half 2.4+ для совместимости
+rand = "0.8"
+half = "2.4"
+
 # Для WebAssembly интеграции
 wasm-bindgen = { version = "0.2", optional = true }
 js-sys = { version = "0.3", optional = true }
@@ -56,9 +63,9 @@ objc = "0.2"
 core-foundation = "0.9"
 libc = "0.2"
 # Добавляем поддержку Core ML (опциональные зависимости)
-candle-core = { version = "0.4", optional = true }
-candle-nn = { version = "0.4", optional = true }
-candle-transformers = { version = "0.4", optional = true }
+candle-core = { version = "0.8", optional = true, features = ["metal"] }
+candle-nn = { version = "0.8", optional = true }
+candle-transformers = { version = "0.8", optional = true }
 
 # Linux специфичные зависимости (уже включены в cpal, но можем добавить прямую поддержку)
 [target.'cfg(target_os = "linux")'.dependencies]
