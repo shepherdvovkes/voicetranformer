@@ -8,8 +8,7 @@ edition = "2021"
 crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
-# Для кросс-платформенного аудио ввода/вывода
-cpal = "0.14"
+# Убираем cpal полностью - используем только direct Core Audio
 
 # Для качественного сдвига высоты тона и формант
 signalsmith-stretch = "0.1.1"
@@ -62,19 +61,7 @@ candle-transformers = { version = "0.4", optional = true }
 # Pin half crate to compatible version with candle-core's rand 0.8.5
 half = { version = "=2.3.1", optional = true }
 
-# Linux специфичные зависимости (уже включены в cpal, но можем добавить прямую поддержку)
-[target.'cfg(target_os = "linux")'.dependencies]
-alsa = "0.9"
-
-# Windows специфичные зависимости
-[target.'cfg(target_os = "windows")'.dependencies]
-windows = { version = "0.54", features = [
-    "Win32_Media_Audio",
-    "Win32_Foundation",
-    "Win32_System_Com",
-    "Win32_Media_Audio_DirectSound",
-    "Win32_Media_Audio_Endpoints",
-] }
+# Убираем поддержку Linux и Windows - только macOS M1/M2/M3/M4
 
 [features]
 default = ["apple-silicon"]
