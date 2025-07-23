@@ -1,9 +1,5 @@
 // macOS платформо-специфичная функциональность
-#[cfg(target_os = "macos")]
-extern crate coreaudio_rs;
-
 use super::PlatformAudio;
-
 
 #[cfg(target_os = "macos")]
 use coreaudio_rs::audio_unit::macos_helpers::{

@@ -481,7 +481,7 @@ struct NeuralKernels {
 impl NeuralKernels {
     fn new(device: &Device) -> Result<Self, String> {
         // Создаем Metal шейдеры для обработки аудио
-        let library = device.new_default_library();
+        let _library = device.new_default_library();
         
         // В реальной реализации здесь будут загружаться скомпилированные шейдеры
         // Пока создаем заглушки
