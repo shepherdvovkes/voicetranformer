@@ -13,7 +13,7 @@ use platform::PlatformAudio;
 pub mod ai_effects;
 mod neural_engine;
 use ai_effects::{AIProcessor, AIConfig, AIProcessingMode};
-use neural_engine::{NeuralVoiceProcessor, NeuralConfig, VoiceEffect, QualityPreset, NeuralProcessingResult};
+use neural_engine::{NeuralVoiceProcessor, VoiceEffect, NeuralConfig, QualityPreset};
 
 /// Статистика производительности системы
 #[derive(Debug, Clone, Default)]
@@ -442,8 +442,8 @@ impl AudioPipeline {
             #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
             {
                 let neural_config = NeuralConfig {
-                    sample_rate: params.sample_rate,
-                    buffer_size: params.buffer_size,
+                    sample_rate,
+                    buffer_size,
                     max_effects: 8,
                     quality_preset: QualityPreset::Medium,
                     enable_real_time: true,
