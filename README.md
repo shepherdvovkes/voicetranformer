@@ -1,140 +1,78 @@
-# Voice Transformer - Server
+# Voice Transformer: Real-time AI Voice Conversion
 
-[![CI](https://github.com/tokio-rs/tokio/actions/workflows/ci.yml/badge.svg)](https://github.com/tokio-rs/tokio/actions/workflows/ci.yml)
+[![Rust](https://img.shields.io/badge/language-Rust-orange.svg)](https://www.rust-lang.org/)
+[![WebAssembly](https://img.shields.io/badge/target-WebAssembly-blueviolet.svg)](https://webassembly.org/)
+[![Apple Silicon NPU](https://img.shields.io/badge/hardware-Apple%20Silicon%20NPU-lightgrey.svg)](https://developer.apple.com/machine-learning/core-ml/)
+[![Core ML](https://img.shields.io/badge/api-Core%20ML-green.svg)](https://developer.apple.com/documentation/coreml)
+[![Web Audio API](https://img.shields.io/badge/api-Web%20Audio-blue.svg)](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-This repository contains the server-side application for the **Voice Transformer** project. This backend is written in Rust and is designed for high performance, reliability, and security, providing the necessary infrastructure for the real-time voice modification clients.
+Это репозиторий проекта **Voice Transformer** — приложения для трансформации голоса в реальном времени. Ключевая особенность нашей архитектуры — выполнение всех ресурсоемких AI-вычислений непосредственно на **нейронном процессоре (NPU) Apple Silicon M1**, что обеспечивает максимальную производительность при минимальной нагрузке на CPU и GPU.
 
-## Architecture Overview
+## Архитектура и философия проекта
 
-It is crucial to understand that **no real-time audio processing happens on the server**. All DSP and AI-based voice modification is performed client-side to ensure minimal latency.
+Проект разделен на два основных компонента: высокопроизводительное ядро обработки на Rust и интерактивный фронтенд для демонстрации и использования.
 
-The server's primary roles are:
-1.  **Signaling Server:** Manages the connection setup between users for peer-to-peer (P2P) calls using WebRTC. It helps clients exchange metadata (like network information and session descriptions) so they can establish a direct connection.
-2.  **User Authentication & Management:** Handles user registration, login, and profile management.
-3.  **Session Management:** Manages call sessions, user presence, and invitations.
-4.  **(Future) Asset Delivery:** Will be responsible for delivering AI models, voice presets, and other assets to the clients.
-5.  **(Future) Analytics:** Collects anonymized usage data to improve the service.
+### 1. Ядро обработки (`dsp_core`) - Мозг операции
 
-The entire backend is built as a set of high-performance, asynchronous microservices.
+Это сердце всего приложения, написанное на **Rust**. Оно содержит всю логику обработки звука, от классических DSP-эффектов до сложного AI-преобразования голоса.
 
-## Technology Stack
+**Главный принцип:** Ядро спроектировано так, чтобы быть полностью независимым и портируемым. Оно компилируется в нативную библиотеку, которая через безопасный FFI-интерфейс напрямую взаимодействует с системными API, такими как **Core ML** в macOS/iOS. Это позволяет нам перенаправлять 100% AI-вычислений на **Apple Silicon NPU**, освобождая CPU и GPU для других задач.
 
-* **Language:** [Rust](https://www.rust-lang.org/) (Stable toolchain)
-* **Web Framework:** [Actix Web](https://actix.rs/) / [Axum](https://github.com/tokio-rs/axum) - Chosen for its exceptional performance and safety.
-* **Asynchronous Runtime:** [Tokio](https://tokio.rs/) - The foundation for all asynchronous operations.
-* **Database:** [PostgreSQL](https://www.postgresql.org/) - A robust and reliable open-source relational database.
-* **Database Interaction:** [SQLx](https://github.com/launchbadge/sqlx) - A modern, async-ready, and compile-time checked SQL toolkit for Rust.
-* **WebSockets:** For real-time signaling communication.
-* **Serialization:** [Serde](https://serde.rs/) - For efficient and safe JSON serialization/deserialization.
-* **Configuration:** `dotenvy` for managing environment variables.
-* **Logging:** `tracing` and `tracing-subscriber`.
+### 2. Фронтенд (`frontend`) - Прототип и UI
 
-## Prerequisites
+Это интерактивный веб-интерфейс, который служит для демонстрации возможностей ядра. Он использует **Web Audio API** для захвата звука с микрофона в реальном времени. В будущем этот прототип будет подключен к скомпилированной в **WebAssembly** версии нашего Rust-ядра, что позволит выполнять обработку прямо в браузере.
 
-Before you begin, ensure you have the following installed on your system:
-* **Rust Toolchain:** Install via [rustup](https://rustup.rs/).
+## Ключевые особенности
+
+* **Обработка на NPU:** Все AI-модели для преобразования голоса выполняются на нейронном процессоре Apple M1, обеспечивая феноменальную производительность и энергоэффективность.
+* **Низкая задержка:** Архитектура оптимизирована для работы в реальном времени с минимально возможной задержкой.
+* **Кросс-платформенность:** Ядро на Rust может быть скомпилировано для macOS, iOS, Android, Windows и Web, обеспечивая единую кодовую базу.
+* **Гибридный подход:** Сочетает классические DSP-алгоритмы (для простых эффектов) и продвинутые AI-модели (для клонирования голоса).
+
+## Структура проекта
+
+
+.
+├── dsp_core/               # Ядро обработки звука на Rust
+│   ├── src/
+│   │   └── lib.rs          # Основной код библиотеки с FFI-интерфейсом
+│   └── Cargo.toml          # Зависимости Rust-проекта
+│
+├── frontend/               # UI-прототип (веб-интерфейс)
+│   └── index.html          # HTML-файл с интерфейсом и симуляцией
+│
+├── README.md               # Этот файл
+└── setup_subdirs.sh        # Скрипт для развертывания структуры
+
+
+## Как запустить
+
+### Фронтенд (UI Прототип)
+
+Для просмотра интерактивного интерфейса просто откройте файл `frontend/index.html` в вашем любимом веб-браузере.
+
+> **Примечание:** Функциональность в `index.html` является симуляцией и демонстрацией UI. Она использует встроенные в браузер возможности для визуализации, но не подключена к реальному Rust-ядру.
+
+### Ядро обработки (DSP Core)
+
+Это библиотека, а не исполняемый файл, поэтому у нее нет команды `cargo run`. Вы можете скомпилировать ее, чтобы убедиться в отсутствии ошибок:
+
+1.  Перейдите в каталог ядра:
     ```bash
-    curl --proto '=https' --tlsv1.2 -sSf [https://sh.rustup.rs](https://sh.rustup.rs) | sh
+    cd dsp_core
     ```
-* **PostgreSQL:** A running instance of PostgreSQL (version 14+).
-* **Docker & Docker Compose (Recommended):** The easiest way to run a local PostgreSQL database.
-* **`sqlx-cli`:** For managing database migrations.
+2.  Запустите сборку:
     ```bash
-    cargo install sqlx-cli
+    cargo build --release
     ```
 
-## Getting Started
-
-Follow these steps to get a local development environment running.
-
-### 1. Clone the Repository
-
-```bash
-git clone [https://github.com/your-username/voice-transformer-server.git](https://github.com/your-username/voice-transformer-server.git)
-cd voice-transformer-server
-```
-
-### 2. Set Up the Database
-
-If you have Docker installed, the easiest way to start a database is with Docker Compose.
-
-```bash
-# This will start a PostgreSQL container in the background
-docker-compose up -d
-```
-
-### 3. Configure Environment Variables
-
-Copy the example environment file and update it with your database credentials.
-
-```bash
-cp .env.example .env
-```
-
-Now, edit the `.env` file. If you used the provided `docker-compose.yml`, the default values should work correctly.
-
-```dotenv
-# .env
-DATABASE_URL="postgres://postgres:password@localhost:5432/voice_transformer"
-# Other settings like JWT secrets, server address, etc.
-SERVER_ADDR="127.0.0.1:8080"
-JWT_SECRET="your-super-secret-key-that-is-very-long"
-```
-
-### 4. Run Database Migrations
-
-With `sqlx-cli` installed and your `DATABASE_URL` set, create and apply the database schema.
-
-```bash
-# Create the database specified in DATABASE_URL
-sqlx database create
-
-# Run all pending migrations
-sqlx migrate run
-```
-The migration files are located in the `/migrations` directory.
-
-### 5. Build and Run the Server
-
-You can now build and run the application.
-
-```bash
-# Build and run in development mode
-cargo run
-
-# Or, for production-level performance
-cargo run --release
-```
-
-The server should now be running on the address specified in your `.env` file (e.g., `http://127.0.0.1:8080`).
-
-## Project Structure
-
-* `.github/workflows/` - CI/CD configuration
-* `migrations/` - SQLx database migrations
-* `src/` - Source code
-    * `api/` - API route handlers (e.g., auth, signaling)
-    * `core/` - Core business logic and services
-    * `db/` - Database interaction logic
-    * `models/` - Data structures and models
-    * `config.rs` - Configuration loading
-    * `main.rs` - Application entry point
-* `.env.example` - Example environment file
-* `Cargo.toml` - Rust project manifest
-* `docker-compose.yml` - Docker configuration for local dev
-* `README.md` - This file
+Это создаст скомпилированную нативную библиотеку в каталоге `dsp_core/target/release/`, которую в будущем можно будет подключить к нативному приложению для macOS.
 
 ## Contributing
 
-Contributions are welcome! If you'd like to contribute, please fork the repository and create a pull request. For major changes, please open an issue first to discuss what you would like to change.
-
-1.  Fork the Project
-2.  Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3.  Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4.  Push to the Branch (`git push origin feature/AmazingFeature`)
-5.  Open a Pull Request
+Мы приветствуем любой вклад! Пожалуйста, форкните репозиторий и создайте Pull Request с вашими изменениями.
 
 ## License
 
-This project is licensed under the MIT License.
+Этот проект лицензирован под лицензией MIT.
