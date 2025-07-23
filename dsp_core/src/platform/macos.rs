@@ -2,7 +2,9 @@
 use super::PlatformAudio;
 
 #[cfg(target_os = "macos")]
-use coreaudio_rs::audio_unit::{AudioUnit, Element, SampleFormat, Scope, StreamFormat, IOType};
+use coreaudio::audio_unit::{AudioUnit, Element, SampleFormat, Scope, StreamFormat};
+#[cfg(target_os = "macos")]
+use coreaudio::audio_unit::types::IOType;
 
 /// Платформо-специфичная реализация для macOS с Core Audio
 pub struct CoreAudioPlatform {
@@ -178,8 +180,6 @@ fn is_apple_silicon() -> bool {
 /// Создает и настраивает AudioUnit для Core Audio
 #[cfg(target_os = "macos")]
 fn create_audio_unit() -> Result<AudioUnit, Box<dyn std::error::Error>> {
-    // AudioUnit и IOType уже импортированы выше
-    
     // Создаем HAL Output Unit (для воспроизведения)
     let mut audio_unit = AudioUnit::new(IOType::HalOutput)?;
     
@@ -190,7 +190,7 @@ fn create_audio_unit() -> Result<AudioUnit, Box<dyn std::error::Error>> {
         channels: 2, // Стерео
     };
     
-    // Используем новый API для установки формата потока
+    // Устанавливаем формат потока
     audio_unit.set_stream_format(stream_format)?;
     
     Ok(audio_unit)

@@ -3,12 +3,6 @@
 #[cfg(target_os = "macos")]
 pub mod macos;
 
-#[cfg(target_os = "linux")]
-pub mod linux;
-
-#[cfg(target_os = "windows")]
-pub mod windows;
-
 // Общий трейт для платформо-специфичной аудио обработки
 pub trait PlatformAudio {
     type Error;
@@ -42,29 +36,20 @@ pub trait PlatformAudio {
     }
 }
 
-// Определяем тип для текущей платформы
+// Определяем тип только для macOS - убираем поддержку других ОС
 #[cfg(target_os = "macos")]
 pub type PlatformAudioImpl = macos::CoreAudioPlatform;
 
-#[cfg(target_os = "linux")]
-pub type PlatformAudioImpl = linux::AlsaPlatform;
-
-#[cfg(target_os = "windows")]
-pub type PlatformAudioImpl = windows::WasapiPlatform;
-
-#[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
-pub type PlatformAudioImpl = DefaultPlatform;
-
-// Заглушка для неподдерживаемых платформ
-#[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+// Заглушка для неподдерживаемых платформ (не-macOS)
+#[cfg(not(target_os = "macos"))]
 pub struct DefaultPlatform;
 
-#[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+#[cfg(not(target_os = "macos"))]
 impl PlatformAudio for DefaultPlatform {
     type Error = &'static str;
     
     fn initialize() -> Result<Self, Self::Error> {
-        Err("Платформа не поддерживается")
+        Err("Поддерживается только macOS M1/M2/M3/M4")
     }
     
     fn get_sample_rate(&self) -> f32 { 44100.0 }
@@ -72,5 +57,8 @@ impl PlatformAudio for DefaultPlatform {
     fn start(&mut self) -> Result<(), Self::Error> { Ok(()) }
     fn stop(&mut self) -> Result<(), Self::Error> { Ok(()) }
     fn supports_low_latency(&self) -> bool { false }
-    fn platform_info(&self) -> String { "Неизвестная платформа".to_string() }
+    fn platform_info(&self) -> String { "Только macOS M1/M2/M3/M4 поддерживается".to_string() }
 }
+
+#[cfg(not(target_os = "macos"))]
+pub type PlatformAudioImpl = DefaultPlatform;
