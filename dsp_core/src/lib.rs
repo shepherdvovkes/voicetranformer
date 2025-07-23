@@ -11,7 +11,9 @@ use platform::PlatformAudio;
 
 // AI эффекты модуль
 pub mod ai_effects;
+mod neural_engine;
 use ai_effects::{AIProcessor, AIConfig, AIProcessingMode};
+use neural_engine::{NeuralVoiceProcessor, NeuralConfig, VoiceEffect, QualityPreset, NeuralProcessingResult};
 
 /// Статистика производительности системы
 #[derive(Debug, Clone, Default)]
@@ -394,6 +396,9 @@ pub struct AudioPipeline {
     // AI процессор для NPU обработки
     pub ai_processor: AIProcessor,
     
+    // Neural Engine процессор (Apple Silicon M1/M2/M3)
+    pub neural_processor: Option<NeuralVoiceProcessor>,
+    
     // Буферы для обработки
     pub input_buffer: HeapRb<f32>,
     pub output_buffer: HeapRb<f32>,
@@ -431,6 +436,35 @@ impl AudioPipeline {
             noise_generator: NoiseGenerator::new(),
             dsp_processor: DspProcessor::new(sample_rate, max_delay_samples),
             ai_processor: AIProcessor::new(ai_config),
+        
+        // Инициализируем Neural Engine процессор на Apple Silicon
+        neural_processor: {
+            #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+            {
+                let neural_config = NeuralConfig {
+                    sample_rate: params.sample_rate,
+                    buffer_size: params.buffer_size,
+                    max_effects: 8,
+                    quality_preset: QualityPreset::Medium,
+                    enable_real_time: true,
+                };
+                
+                match NeuralVoiceProcessor::new(neural_config) {
+                    Ok(processor) => {
+                        println!("✅ Neural Engine процессор инициализирован");
+                        Some(processor)
+                    }
+                    Err(e) => {
+                        println!("⚠️ Не удалось инициализировать Neural Engine: {}", e);
+                        None
+                    }
+                }
+            }
+            #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+            {
+                None
+            }
+        },
             input_buffer: HeapRb::new(buffer_size * 4),
             output_buffer: HeapRb::new(buffer_size * 4),
             ai_input_sender: None,
@@ -522,6 +556,26 @@ impl AudioPipeline {
             
             // Обрабатываем через AI
             let ai_result = self.ai_processor.process(&ai_input);
+            let mut processed_output = ai_result.output.clone();
+            
+            // Neural Engine обработка (Apple Silicon M1/M2/M3)
+            if let Some(ref mut neural) = self.neural_processor {
+                match neural.process(&processed_output) {
+                    Ok(neural_result) => {
+                        processed_output = neural_result.output;
+                        // Логируем только значительную активность Neural Engine
+                        if neural_result.neural_engine_load > 10.0 {
+                            println!("🧠 Neural Engine: Нагрузка {:.1}%, Задержка {:.0} нс, Качество {:.2}", 
+                                neural_result.neural_engine_load, 
+                                neural_result.latency_ns,
+                                neural_result.quality_score);
+                        }
+                    }
+                    Err(e) => {
+                        println!("⚠️ Ошибка Neural Engine: {}", e);
+                    }
+                }
+            }
             
             // Обновляем статистику производительности
             self.performance_stats.ai_processing_time = ai_result.latency_ms;
@@ -529,7 +583,7 @@ impl AudioPipeline {
             
             // Для VoiceChanger применяем дополнительную DSP обработку
             if effect_type == EffectType::VoiceChanger {
-                for (i, &ai_sample) in ai_result.output.iter().enumerate() {
+                for (i, &ai_sample) in processed_output.iter().enumerate() {
                     if i >= output.len() { break; }
                     let dsp_processed = self.dsp_processor.process_effect(ai_sample, EffectType::Cave, &self.parameters);
                     let mixed = ai_sample * (1.0 - effect_mix) + dsp_processed * effect_mix;
@@ -537,7 +591,7 @@ impl AudioPipeline {
                 }
             } else {
                 // Для других AI эффектов применяем только микс
-                for (i, &ai_sample) in ai_result.output.iter().enumerate() {
+                for (i, &ai_sample) in processed_output.iter().enumerate() {
                     if i >= output.len() { break; }
                     output[i] = ai_sample * output_gain;
                 }
@@ -627,6 +681,15 @@ impl AudioPipeline {
     
     /// Получает детальную информацию о системе
     pub fn get_system_info(&self) -> String {
+        let neural_info = if self.neural_processor.is_some() {
+            format!("\n🧠 Neural Engine: {}\n💫 Neural задержка: {:.0} нс\n🎛️ Neural нагрузка: {:.1}%",
+                self.neural_engine_info(),
+                self.get_neural_latency_ns(),
+                self.get_neural_load())
+        } else {
+            String::new()
+        };
+        
         format!(
             "🎯 Аудио конвейер\n\
              📊 Частота дискретизации: {:.0} Гц\n\
@@ -634,7 +697,7 @@ impl AudioPipeline {
              🎵 Обработано сэмплов: {}\n\
              🧠 NPU поддержка: {}\n\
              📈 Средняя задержка AI: {:.2} мс\n\
-             💻 Средняя нагрузка NPU: {:.1}%\n\
+             💻 Средняя нагрузка NPU: {:.1}%{}\n\
              🔧 {}",
             self.parameters.sample_rate.load(Ordering::Relaxed),
             self.parameters.buffer_size.load(Ordering::Relaxed),
@@ -642,8 +705,61 @@ impl AudioPipeline {
             if self.supports_neural_engine() { "✅ Да" } else { "❌ Нет" },
             self.ai_processor.get_average_latency(),
             self.ai_processor.get_average_npu_load(),
+            neural_info,
             self.platform_info()
         )
+    }
+    
+    // === Neural Engine методы ===
+    
+    /// Добавляет голосовой эффект в Neural Engine
+    pub fn add_voice_effect(&mut self, effect: VoiceEffect) -> Result<(), String> {
+        if let Some(ref mut neural) = self.neural_processor {
+            neural.add_effect(effect)
+        } else {
+            Err("Neural Engine недоступен".to_string())
+        }
+    }
+    
+    /// Удаляет голосовой эффект из Neural Engine
+    pub fn remove_voice_effect(&mut self, effect: &VoiceEffect) {
+        if let Some(ref mut neural) = self.neural_processor {
+            neural.remove_effect(effect);
+        }
+    }
+    
+    /// Очищает все голосовые эффекты
+    pub fn clear_voice_effects(&mut self) {
+        if let Some(ref mut neural) = self.neural_processor {
+            neural.clear_effects();
+        }
+    }
+    
+    /// Возвращает информацию о Neural Engine
+    pub fn neural_engine_info(&self) -> String {
+        if let Some(ref neural) = self.neural_processor {
+            neural.neural_engine_info()
+        } else {
+            "Neural Engine недоступен".to_string()
+        }
+    }
+    
+    /// Возвращает задержку Neural Engine в наносекундах
+    pub fn get_neural_latency_ns(&self) -> u64 {
+        if let Some(ref neural) = self.neural_processor {
+            neural.get_average_latency_ns()
+        } else {
+            0
+        }
+    }
+    
+    /// Возвращает нагрузку на Neural Engine
+    pub fn get_neural_load(&self) -> f32 {
+        if let Some(ref neural) = self.neural_processor {
+            neural.get_average_neural_load()
+        } else {
+            0.0
+        }
     }
 }
 
@@ -927,5 +1043,190 @@ mod tests {
         
         let sum_squares: f32 = samples.iter().map(|&x| x * x).sum();
         (sum_squares / samples.len() as f32).sqrt()
+    }
+}
+
+// === Neural Engine C API ===
+
+/// Добавляет эффект изменения высоты тона
+#[no_mangle]
+pub extern "C" fn add_pitch_shift_effect(pipeline_ptr: *mut c_void, semitones: f32) -> i32 {
+    if pipeline_ptr.is_null() {
+        return -1;
+    }
+    
+    unsafe {
+        let pipeline = &mut *(pipeline_ptr as *mut AudioPipeline);
+        match pipeline.add_voice_effect(VoiceEffect::PitchShift(semitones)) {
+            Ok(_) => 0,
+            Err(_) => -1,
+        }
+    }
+}
+
+/// Добавляет эффект изменения формант
+#[no_mangle]
+pub extern "C" fn add_formant_shift_effect(pipeline_ptr: *mut c_void, shift: f32) -> i32 {
+    if pipeline_ptr.is_null() {
+        return -1;
+    }
+    
+    unsafe {
+        let pipeline = &mut *(pipeline_ptr as *mut AudioPipeline);
+        match pipeline.add_voice_effect(VoiceEffect::FormantShift(shift)) {
+            Ok(_) => 0,
+            Err(_) => -1,
+        }
+    }
+}
+
+/// Добавляет эффект изменения голоса
+#[no_mangle]
+pub extern "C" fn add_voice_changer_effect(pipeline_ptr: *mut c_void, gender: f32, age: f32, roughness: f32) -> i32 {
+    if pipeline_ptr.is_null() {
+        return -1;
+    }
+    
+    unsafe {
+        let pipeline = &mut *(pipeline_ptr as *mut AudioPipeline);
+        match pipeline.add_voice_effect(VoiceEffect::VoiceChanger { gender, age, roughness }) {
+            Ok(_) => 0,
+            Err(_) => -1,
+        }
+    }
+}
+
+/// Добавляет гармонические эффекты
+#[no_mangle]
+pub extern "C" fn add_harmonics_effect(pipeline_ptr: *mut c_void, overtones: f32, undertones: f32, distortion: f32) -> i32 {
+    if pipeline_ptr.is_null() {
+        return -1;
+    }
+    
+    unsafe {
+        let pipeline = &mut *(pipeline_ptr as *mut AudioPipeline);
+        match pipeline.add_voice_effect(VoiceEffect::Harmonics { overtones, undertones, distortion }) {
+            Ok(_) => 0,
+            Err(_) => -1,
+        }
+    }
+}
+
+/// Добавляет модуляционные эффекты
+#[no_mangle]
+pub extern "C" fn add_modulation_effect(pipeline_ptr: *mut c_void, vibrato_rate: f32, vibrato_depth: f32, tremolo_rate: f32, tremolo_depth: f32) -> i32 {
+    if pipeline_ptr.is_null() {
+        return -1;
+    }
+    
+    unsafe {
+        let pipeline = &mut *(pipeline_ptr as *mut AudioPipeline);
+        match pipeline.add_voice_effect(VoiceEffect::Modulation { vibrato_rate, vibrato_depth, tremolo_rate, tremolo_depth }) {
+            Ok(_) => 0,
+            Err(_) => -1,
+        }
+    }
+}
+
+/// Добавляет эффект реверберации
+#[no_mangle]
+pub extern "C" fn add_reverb_effect(pipeline_ptr: *mut c_void, room_size: f32, damping: f32, wet_level: f32) -> i32 {
+    if pipeline_ptr.is_null() {
+        return -1;
+    }
+    
+    unsafe {
+        let pipeline = &mut *(pipeline_ptr as *mut AudioPipeline);
+        match pipeline.add_voice_effect(VoiceEffect::Reverb { room_size, damping, wet_level }) {
+            Ok(_) => 0,
+            Err(_) => -1,
+        }
+    }
+}
+
+/// Добавляет эффект хоруса
+#[no_mangle]
+pub extern "C" fn add_chorus_effect(pipeline_ptr: *mut c_void, voices: u32, delay: f32, depth: f32, rate: f32) -> i32 {
+    if pipeline_ptr.is_null() {
+        return -1;
+    }
+    
+    unsafe {
+        let pipeline = &mut *(pipeline_ptr as *mut AudioPipeline);
+        match pipeline.add_voice_effect(VoiceEffect::Chorus { voices, delay, depth, rate }) {
+            Ok(_) => 0,
+            Err(_) => -1,
+        }
+    }
+}
+
+/// Добавляет эффект искажения
+#[no_mangle]
+pub extern "C" fn add_distortion_effect(pipeline_ptr: *mut c_void, drive: f32, tone: f32, level: f32) -> i32 {
+    if pipeline_ptr.is_null() {
+        return -1;
+    }
+    
+    unsafe {
+        let pipeline = &mut *(pipeline_ptr as *mut AudioPipeline);
+        match pipeline.add_voice_effect(VoiceEffect::Distortion { drive, tone, level }) {
+            Ok(_) => 0,
+            Err(_) => -1,
+        }
+    }
+}
+
+/// Добавляет эффект автотюна
+#[no_mangle]
+pub extern "C" fn add_autotune_effect(pipeline_ptr: *mut c_void, correction: f32, speed: f32, key: i32) -> i32 {
+    if pipeline_ptr.is_null() {
+        return -1;
+    }
+    
+    unsafe {
+        let pipeline = &mut *(pipeline_ptr as *mut AudioPipeline);
+        match pipeline.add_voice_effect(VoiceEffect::AutoTune { correction, speed, key }) {
+            Ok(_) => 0,
+            Err(_) => -1,
+        }
+    }
+}
+
+/// Очищает все голосовые эффекты
+#[no_mangle]
+pub extern "C" fn clear_voice_effects(pipeline_ptr: *mut c_void) {
+    if pipeline_ptr.is_null() {
+        return;
+    }
+    
+    unsafe {
+        let pipeline = &mut *(pipeline_ptr as *mut AudioPipeline);
+        pipeline.clear_voice_effects();
+    }
+}
+
+/// Возвращает нагрузку на Neural Engine (0.0-100.0)
+#[no_mangle]
+pub extern "C" fn get_neural_load(pipeline_ptr: *const c_void) -> f32 {
+    if pipeline_ptr.is_null() {
+        return 0.0;
+    }
+    
+    unsafe {
+        let pipeline = &*(pipeline_ptr as *const AudioPipeline);
+        pipeline.get_neural_load()
+    }
+}
+
+/// Возвращает задержку Neural Engine в наносекундах
+#[no_mangle]
+pub extern "C" fn get_neural_latency_ns(pipeline_ptr: *const c_void) -> u64 {
+    if pipeline_ptr.is_null() {
+        return 0;
+    }
+    
+    unsafe {
+        let pipeline = &*(pipeline_ptr as *const AudioPipeline);
+        pipeline.get_neural_latency_ns()
     }
 }

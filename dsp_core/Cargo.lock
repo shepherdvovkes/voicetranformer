@@ -506,6 +506,7 @@ dependencies = [
  "crossbeam-channel",
  "hound",
  "js-sys",
+ "libc",
  "metal",
  "objc",
  "ringbuf",

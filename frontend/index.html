@@ -113,6 +113,126 @@
                         <!-- Элементы управления шумом будут добавлены сюда с помощью JS -->
                     </div>
                 </div>
+
+                <!-- Neural Engine эффекты -->
+                <div class="panel p-5">
+                    <h2 class="text-xl font-bold mb-4 text-gray-200">🧠 Neural Engine (Apple M1/M2/M3)</h2>
+                    <div class="space-y-4">
+                        
+                        <!-- Высота тона -->
+                        <div class="space-y-2">
+                            <div class="flex justify-between">
+                                <label class="text-sm font-medium text-gray-300">🎶 Высота тона</label>
+                                <span id="pitch-value" class="text-xs text-gray-400">0 полутонов</span>
+                            </div>
+                            <input type="range" id="pitch-slider" min="-12" max="12" value="0" step="0.5" class="w-full">
+                        </div>
+
+                        <!-- Изменение голоса -->
+                        <div class="space-y-2">
+                            <h3 class="text-sm font-semibold text-gray-300">🎨 Изменение голоса</h3>
+                            <div class="grid grid-cols-3 gap-2">
+                                <div>
+                                    <label class="text-xs text-gray-400">Пол</label>
+                                    <input type="range" id="gender-slider" min="-1" max="1" value="0" step="0.1" class="w-full">
+                                    <span id="gender-value" class="text-xs text-gray-500">0</span>
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-400">Возраст</label>
+                                    <input type="range" id="age-slider" min="-1" max="1" value="0" step="0.1" class="w-full">
+                                    <span id="age-value" class="text-xs text-gray-500">0</span>
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-400">Грубость</label>
+                                    <input type="range" id="roughness-slider" min="0" max="1" value="0" step="0.1" class="w-full">
+                                    <span id="roughness-value" class="text-xs text-gray-500">0</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Гармоники -->
+                        <div class="space-y-2">
+                            <h3 class="text-sm font-semibold text-gray-300">🌈 Гармоники</h3>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="text-xs text-gray-400">Обертоны</label>
+                                    <input type="range" id="overtones-slider" min="0" max="1" value="0" step="0.1" class="w-full">
+                                    <span id="overtones-value" class="text-xs text-gray-500">0</span>
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-400">Субгармоники</label>
+                                    <input type="range" id="undertones-slider" min="0" max="1" value="0" step="0.1" class="w-full">
+                                    <span id="undertones-value" class="text-xs text-gray-500">0</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Модуляция -->
+                        <div class="space-y-2">
+                            <h3 class="text-sm font-semibold text-gray-300">🎭 Модуляция</h3>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="text-xs text-gray-400">Вибрато</label>
+                                    <input type="range" id="vibrato-slider" min="0" max="1" value="0" step="0.1" class="w-full">
+                                    <span id="vibrato-value" class="text-xs text-gray-500">0</span>
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-400">Тремоло</label>
+                                    <input type="range" id="tremolo-slider" min="0" max="1" value="0" step="0.1" class="w-full">
+                                    <span id="tremolo-value" class="text-xs text-gray-500">0</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Пространственные эффекты -->
+                        <div class="space-y-2">
+                            <h3 class="text-sm font-semibold text-gray-300">🏛️ Пространство</h3>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="text-xs text-gray-400">Реверб</label>
+                                    <input type="range" id="reverb-slider" min="0" max="1" value="0" step="0.1" class="w-full">
+                                    <span id="reverb-value" class="text-xs text-gray-500">0</span>
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-400">Хорус</label>
+                                    <input type="range" id="chorus-slider" min="0" max="1" value="0" step="0.1" class="w-full">
+                                    <span id="chorus-value" class="text-xs text-gray-500">0</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Дополнительные эффекты -->
+                        <div class="space-y-2">
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="text-xs text-gray-400">🎸 Искажения</label>
+                                    <input type="range" id="distortion-slider" min="0" max="1" value="0" step="0.1" class="w-full">
+                                    <span id="distortion-value" class="text-xs text-gray-500">0</span>
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-400">🎯 Автотюн</label>
+                                    <input type="range" id="autotune-slider" min="0" max="1" value="0" step="0.1" class="w-full">
+                                    <span id="autotune-value" class="text-xs text-gray-500">0</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Управление -->
+                        <div class="pt-2">
+                            <button id="clear-effects-btn" class="w-full bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-2 px-3 rounded-md transition duration-300">
+                                🧹 Очистить все эффекты
+                            </button>
+                        </div>
+
+                        <!-- Статистика Neural Engine -->
+                        <div class="pt-2 border-t border-gray-600">
+                            <div class="text-xs text-gray-400 space-y-1">
+                                <div>Задержка: <span id="neural-latency" class="text-amber-400">0</span> нс</div>
+                                <div>Качество: <span id="neural-quality" class="text-green-400">0</span>/1.0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Правая колонка: Визуализация и Нагрузка -->
@@ -221,6 +341,7 @@
 
         // --- Инициализация UI ---
         function initializeUI() {
+            initNeuralControls();
             presets.forEach(preset => {
                 const button = document.createElement('button');
                 button.className = 'preset-card p-2 rounded-lg flex flex-col items-center justify-center aspect-square focus:outline-none';
@@ -289,6 +410,188 @@
                 });
             });
             lucide.createIcons();
+        }
+
+        // --- Neural Engine функции ---
+        
+        // Обновление значений слайдеров
+        function updateSliderValue(sliderId, valueId, suffix = '') {
+            const slider = document.getElementById(sliderId);
+            const valueSpan = document.getElementById(valueId);
+            if (slider && valueSpan) {
+                valueSpan.textContent = slider.value + suffix;
+            }
+        }
+
+        // Инициализация Neural Engine контролов
+        function initNeuralControls() {
+            // Высота тона
+            const pitchSlider = document.getElementById('pitch-slider');
+            const pitchValue = document.getElementById('pitch-value');
+            pitchSlider.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                pitchValue.textContent = `${value} полутонов`;
+                // Симуляция вызова C API
+                console.log(`🧠 Neural Engine: Pitch Shift ${value} полутонов`);
+                updateNeuralLoad();
+            });
+
+            // Изменение голоса
+            const genderSlider = document.getElementById('gender-slider');
+            const ageSlider = document.getElementById('age-slider');
+            const roughnessSlider = document.getElementById('roughness-slider');
+            
+            function updateVoiceChanger() {
+                const gender = parseFloat(genderSlider.value);
+                const age = parseFloat(ageSlider.value);
+                const roughness = parseFloat(roughnessSlider.value);
+                
+                document.getElementById('gender-value').textContent = gender.toFixed(1);
+                document.getElementById('age-value').textContent = age.toFixed(1);
+                document.getElementById('roughness-value').textContent = roughness.toFixed(1);
+                
+                console.log(`🧠 Neural Engine: Voice Changer - Gender: ${gender}, Age: ${age}, Roughness: ${roughness}`);
+                updateNeuralLoad();
+            }
+            
+            genderSlider.addEventListener('input', updateVoiceChanger);
+            ageSlider.addEventListener('input', updateVoiceChanger);
+            roughnessSlider.addEventListener('input', updateVoiceChanger);
+
+            // Гармоники
+            const overtonesSlider = document.getElementById('overtones-slider');
+            const undertonesSlider = document.getElementById('undertones-slider');
+            
+            function updateHarmonics() {
+                const overtones = parseFloat(overtonesSlider.value);
+                const undertones = parseFloat(undertonesSlider.value);
+                
+                document.getElementById('overtones-value').textContent = overtones.toFixed(1);
+                document.getElementById('undertones-value').textContent = undertones.toFixed(1);
+                
+                console.log(`🧠 Neural Engine: Harmonics - Overtones: ${overtones}, Undertones: ${undertones}`);
+                updateNeuralLoad();
+            }
+            
+            overtonesSlider.addEventListener('input', updateHarmonics);
+            undertonesSlider.addEventListener('input', updateHarmonics);
+
+            // Модуляция
+            const vibratoSlider = document.getElementById('vibrato-slider');
+            const tremoloSlider = document.getElementById('tremolo-slider');
+            
+            function updateModulation() {
+                const vibrato = parseFloat(vibratoSlider.value);
+                const tremolo = parseFloat(tremoloSlider.value);
+                
+                document.getElementById('vibrato-value').textContent = vibrato.toFixed(1);
+                document.getElementById('tremolo-value').textContent = tremolo.toFixed(1);
+                
+                console.log(`🧠 Neural Engine: Modulation - Vibrato: ${vibrato}, Tremolo: ${tremolo}`);
+                updateNeuralLoad();
+            }
+            
+            vibratoSlider.addEventListener('input', updateModulation);
+            tremoloSlider.addEventListener('input', updateModulation);
+
+            // Пространственные эффекты
+            const reverbSlider = document.getElementById('reverb-slider');
+            const chorusSlider = document.getElementById('chorus-slider');
+            
+            function updateSpatialEffects() {
+                const reverb = parseFloat(reverbSlider.value);
+                const chorus = parseFloat(chorusSlider.value);
+                
+                document.getElementById('reverb-value').textContent = reverb.toFixed(1);
+                document.getElementById('chorus-value').textContent = chorus.toFixed(1);
+                
+                console.log(`🧠 Neural Engine: Spatial - Reverb: ${reverb}, Chorus: ${chorus}`);
+                updateNeuralLoad();
+            }
+            
+            reverbSlider.addEventListener('input', updateSpatialEffects);
+            chorusSlider.addEventListener('input', updateSpatialEffects);
+
+            // Дополнительные эффекты
+            const distortionSlider = document.getElementById('distortion-slider');
+            const autotuneSlider = document.getElementById('autotune-slider');
+            
+            distortionSlider.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                document.getElementById('distortion-value').textContent = value.toFixed(1);
+                console.log(`🧠 Neural Engine: Distortion ${value}`);
+                updateNeuralLoad();
+            });
+            
+            autotuneSlider.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                document.getElementById('autotune-value').textContent = value.toFixed(1);
+                console.log(`🧠 Neural Engine: Autotune ${value}`);
+                updateNeuralLoad();
+            });
+
+            // Очистка эффектов
+            const clearEffectsBtn = document.getElementById('clear-effects-btn');
+            clearEffectsBtn.addEventListener('click', () => {
+                // Сброс всех слайдеров
+                pitchSlider.value = 0;
+                genderSlider.value = 0;
+                ageSlider.value = 0;
+                roughnessSlider.value = 0;
+                overtonesSlider.value = 0;
+                undertonesSlider.value = 0;
+                vibratoSlider.value = 0;
+                tremoloSlider.value = 0;
+                reverbSlider.value = 0;
+                chorusSlider.value = 0;
+                distortionSlider.value = 0;
+                autotuneSlider.value = 0;
+                
+                // Обновление отображения
+                updateVoiceChanger();
+                updateHarmonics();
+                updateModulation();
+                updateSpatialEffects();
+                pitchValue.textContent = '0 полутонов';
+                document.getElementById('distortion-value').textContent = '0';
+                document.getElementById('autotune-value').textContent = '0';
+                
+                console.log('🧹 Neural Engine: Все эффекты очищены');
+                updateNeuralLoad();
+            });
+        }
+
+        // Обновление нагрузки Neural Engine
+        function updateNeuralLoad() {
+            // Подсчитываем активные эффекты
+            let totalLoad = 0;
+            const sliders = [
+                'pitch-slider', 'gender-slider', 'age-slider', 'roughness-slider',
+                'overtones-slider', 'undertones-slider', 'vibrato-slider', 'tremolo-slider',
+                'reverb-slider', 'chorus-slider', 'distortion-slider', 'autotune-slider'
+            ];
+            
+            sliders.forEach(sliderId => {
+                const slider = document.getElementById(sliderId);
+                if (slider && parseFloat(slider.value) !== 0) {
+                    totalLoad += parseFloat(slider.value) * 10; // Базовая нагрузка
+                    
+                    // Дополнительная нагрузка для сложных эффектов
+                    if (['autotune-slider', 'reverb-slider', 'chorus-slider'].includes(sliderId)) {
+                        totalLoad += parseFloat(slider.value) * 15;
+                    }
+                }
+            });
+            
+            // Обновляем NPU нагрузку
+            currentLoad.npu = Math.min(Math.max(totalLoad, baseLoad.npu), 95);
+            
+            // Симулируем задержку и качество
+            const latency = Math.floor(1000 + totalLoad * 500); // Наносекунды
+            const quality = Math.max(0.95 - totalLoad * 0.01, 0.5); // Качество
+            
+            document.getElementById('neural-latency').textContent = latency.toLocaleString();
+            document.getElementById('neural-quality').textContent = quality.toFixed(2);
         }
 
         // --- Основная аудио логика ---
