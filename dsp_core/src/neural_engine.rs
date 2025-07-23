@@ -4,8 +4,6 @@ use std::collections::VecDeque;
 use std::time::Instant;
 
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-use core_foundation::{base::TCFType, string::CFString};
-#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 use metal::*;
 
 /// Типы голосовых эффектов для Neural Engine
@@ -483,8 +481,7 @@ struct NeuralKernels {
 impl NeuralKernels {
     fn new(device: &Device) -> Result<Self, String> {
         // Создаем Metal шейдеры для обработки аудио
-        let library = device.new_default_library()
-            .ok_or("Не удалось создать Metal библиотеку")?;
+        let library = device.new_default_library();
         
         // В реальной реализации здесь будут загружаться скомпилированные шейдеры
         // Пока создаем заглушки
@@ -498,7 +495,7 @@ impl NeuralKernels {
 }
 
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-fn create_dummy_kernel(device: &Device) -> Result<ComputePipelineState, String> {
+fn create_dummy_kernel(_device: &Device) -> Result<ComputePipelineState, String> {
     // Заглушка для создания compute pipeline
     // В реальной реализации здесь будет компиляция Metal шейдеров
     Err("Metal шейдеры не реализованы в демо версии".to_string())

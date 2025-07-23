@@ -1,6 +1,9 @@
 // macOS платформо-специфичная функциональность
+#[cfg(target_os = "macos")]
+extern crate coreaudio_rs;
+
 use super::PlatformAudio;
-use std::ffi::c_void;
+
 
 #[cfg(target_os = "macos")]
 use coreaudio_rs::audio_unit::macos_helpers::{
@@ -215,7 +218,6 @@ const kAudioUnitProperty_StreamFormat: u32 = 8;
 /// Core ML интеграция для Apple Silicon
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 pub mod coreml_integration {
-    use super::*;
     
     /// Структура для работы с Core ML на NPU
     pub struct CoreMLProcessor {
