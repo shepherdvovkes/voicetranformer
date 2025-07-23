@@ -3,13 +3,29 @@ use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use atomic_float::AtomicF32;
 use ringbuf::HeapRb;
 use crossbeam_channel::{Receiver, Sender};
+use serde::{Deserialize, Serialize};
 
 // Платформо-специфичные модули
 pub mod platform;
 use platform::PlatformAudio;
 
+// AI эффекты модуль
+pub mod ai_effects;
+use ai_effects::{AIProcessor, AIConfig, AIProcessingMode};
+
+/// Статистика производительности системы
+#[derive(Debug, Clone, Default)]
+pub struct PerformanceStats {
+    pub cpu_usage: f32,
+    pub gpu_usage: f32,
+    pub npu_usage: f32,
+    pub memory_usage: f32,
+    pub audio_latency: f32,
+    pub ai_processing_time: f32,
+}
+
 /// Типы аудио эффектов
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum EffectType {
     None,
     // DSP эффекты
@@ -23,10 +39,12 @@ pub enum EffectType {
     Robot,       // Робот
     Demon,       // Демон
     Alien,       // Пришелец
+    // Комплексный демонстрационный эффект
+    VoiceChanger, // Полная цепочка: DSP → AI → Post-processing
 }
 
 /// Типы генераторов шума
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum NoiseType {
     None,
     White,   // Белый шум
@@ -358,7 +376,7 @@ impl DspProcessor {
             },
             
             // AI эффекты - заглушки (в реальности будут обрабатываться через Core ML)
-            EffectType::Robot | EffectType::Demon | EffectType::Alien => {
+            EffectType::Robot | EffectType::Demon | EffectType::Alien | EffectType::VoiceChanger => {
                 // Для AI эффектов возвращаем входной сигнал
                 // В реальной реализации здесь будет вызов AI модели
                 input
@@ -372,6 +390,9 @@ pub struct AudioPipeline {
     pub parameters: AudioParameters,
     pub noise_generator: NoiseGenerator,
     pub dsp_processor: DspProcessor,
+    
+    // AI процессор для NPU обработки
+    pub ai_processor: AIProcessor,
     
     // Буферы для обработки
     pub input_buffer: HeapRb<f32>,
@@ -387,16 +408,29 @@ pub struct AudioPipeline {
     // Счетчики и статистика
     pub samples_processed: u64,
     pub is_processing: AtomicBool,
+    
+    // Статистика производительности
+    pub performance_stats: PerformanceStats,
 }
 
 impl AudioPipeline {
     pub fn new(sample_rate: f32, buffer_size: usize) -> Self {
         let max_delay_samples = (sample_rate * 2.0) as usize; // 2 секунды максимум
         
+        // Создаем конфигурацию для AI процессора
+        let ai_config = AIConfig {
+            sample_rate,
+            buffer_size,
+            model_path: None,
+            use_npu: true,
+            processing_mode: AIProcessingMode::Balanced,
+        };
+        
         Self {
             parameters: AudioParameters::default(),
             noise_generator: NoiseGenerator::new(),
             dsp_processor: DspProcessor::new(sample_rate, max_delay_samples),
+            ai_processor: AIProcessor::new(ai_config),
             input_buffer: HeapRb::new(buffer_size * 4),
             output_buffer: HeapRb::new(buffer_size * 4),
             ai_input_sender: None,
@@ -404,6 +438,7 @@ impl AudioPipeline {
             platform_audio: None,
             samples_processed: 0,
             is_processing: AtomicBool::new(false),
+            performance_stats: PerformanceStats::default(),
         }
     }
     
@@ -460,6 +495,7 @@ impl AudioPipeline {
             7 => EffectType::Robot,
             8 => EffectType::Demon,
             9 => EffectType::Alien,
+            10 => EffectType::VoiceChanger,
             _ => EffectType::None,
         };
         
@@ -474,24 +510,58 @@ impl AudioPipeline {
         };
         self.noise_generator.level = self.parameters.noise_level.load(Ordering::Relaxed);
         
-        // Обрабатываем каждый сэмпл
-        for (i, &input_sample) in input.iter().enumerate() {
-            if i >= output.len() { break; }
-            
-            // Применяем входной усилитель
-            let mut sample = input_sample * input_gain;
-            
-            // Добавляем шум
-            sample += self.noise_generator.generate_sample();
-            
-            // Применяем эффект (если не в bypass режиме)
-            if !effect_bypass {
-                let processed = self.dsp_processor.process_effect(sample, effect_type, &self.parameters);
-                sample = sample * (1.0 - effect_mix) + processed * effect_mix;
+        // Для AI эффектов обрабатываем весь блок сразу
+        if matches!(effect_type, EffectType::Robot | EffectType::Demon | EffectType::Alien | EffectType::VoiceChanger) && !effect_bypass {
+            // Подготавливаем входной буфер для AI
+            let mut ai_input = Vec::with_capacity(input.len());
+            for &input_sample in input.iter() {
+                let mut sample = input_sample * input_gain;
+                sample += self.noise_generator.generate_sample();
+                ai_input.push(sample);
             }
             
-            // Применяем выходной усилитель и записываем
-            output[i] = sample * output_gain;
+            // Обрабатываем через AI
+            let ai_result = self.ai_processor.process(&ai_input);
+            
+            // Обновляем статистику производительности
+            self.performance_stats.ai_processing_time = ai_result.latency_ms;
+            self.performance_stats.npu_usage = ai_result.npu_utilization;
+            
+            // Для VoiceChanger применяем дополнительную DSP обработку
+            if effect_type == EffectType::VoiceChanger {
+                for (i, &ai_sample) in ai_result.output.iter().enumerate() {
+                    if i >= output.len() { break; }
+                    let dsp_processed = self.dsp_processor.process_effect(ai_sample, EffectType::Cave, &self.parameters);
+                    let mixed = ai_sample * (1.0 - effect_mix) + dsp_processed * effect_mix;
+                    output[i] = mixed * output_gain;
+                }
+            } else {
+                // Для других AI эффектов применяем только микс
+                for (i, &ai_sample) in ai_result.output.iter().enumerate() {
+                    if i >= output.len() { break; }
+                    output[i] = ai_sample * output_gain;
+                }
+            }
+        } else {
+            // Обычная DSP обработка для не-AI эффектов
+            for (i, &input_sample) in input.iter().enumerate() {
+                if i >= output.len() { break; }
+                
+                // Применяем входной усилитель
+                let mut sample = input_sample * input_gain;
+                
+                // Добавляем шум
+                sample += self.noise_generator.generate_sample();
+                
+                // Применяем эффект (если не в bypass режиме)
+                if !effect_bypass {
+                    let processed = self.dsp_processor.process_effect(sample, effect_type, &self.parameters);
+                    sample = sample * (1.0 - effect_mix) + processed * effect_mix;
+                }
+                
+                // Применяем выходной усилитель и записываем
+                output[i] = sample * output_gain;
+            }
         }
         
         self.samples_processed += input.len() as u64;
@@ -537,14 +607,43 @@ impl AudioPipeline {
         if let Some(ref platform_audio) = self.platform_audio {
             platform_audio.supports_neural_engine()
         } else {
-            false
+            self.ai_processor.supports_npu()
         }
     }
     
     /// Заглушка для не-macOS платформ
     #[cfg(not(target_os = "macos"))]
     pub fn supports_neural_engine(&self) -> bool {
-        false
+        self.ai_processor.supports_npu()
+    }
+    
+    /// Получает статистику производительности
+    pub fn get_performance_stats(&self) -> PerformanceStats {
+        let mut stats = self.performance_stats.clone();
+        stats.npu_usage = self.ai_processor.get_average_npu_load();
+        stats.ai_processing_time = self.ai_processor.get_average_latency();
+        stats
+    }
+    
+    /// Получает детальную информацию о системе
+    pub fn get_system_info(&self) -> String {
+        format!(
+            "🎯 Аудио конвейер\n\
+             📊 Частота дискретизации: {:.0} Гц\n\
+             🔧 Размер буфера: {} сэмплов\n\
+             🎵 Обработано сэмплов: {}\n\
+             🧠 NPU поддержка: {}\n\
+             📈 Средняя задержка AI: {:.2} мс\n\
+             💻 Средняя нагрузка NPU: {:.1}%\n\
+             🔧 {}",
+            self.parameters.sample_rate.load(Ordering::Relaxed),
+            self.parameters.buffer_size.load(Ordering::Relaxed),
+            self.samples_processed,
+            if self.supports_neural_engine() { "✅ Да" } else { "❌ Нет" },
+            self.ai_processor.get_average_latency(),
+            self.ai_processor.get_average_npu_load(),
+            self.platform_info()
+        )
     }
 }
 
@@ -627,6 +726,30 @@ pub unsafe extern "C" fn stop_processing(pipeline_ptr: *mut c_void) {
     if pipeline_ptr.is_null() { return; }
     let pipeline = &mut *(pipeline_ptr as *mut AudioPipeline);
     pipeline.stop_processing();
+}
+
+/// Получает загрузку NPU (возвращает процент 0.0-100.0)
+#[no_mangle]
+pub unsafe extern "C" fn get_npu_load(pipeline_ptr: *mut c_void) -> f32 {
+    if pipeline_ptr.is_null() { return 0.0; }
+    let pipeline = &*(pipeline_ptr as *mut AudioPipeline);
+    pipeline.ai_processor.get_average_npu_load()
+}
+
+/// Получает задержку AI обработки в миллисекундах
+#[no_mangle]
+pub unsafe extern "C" fn get_ai_latency(pipeline_ptr: *mut c_void) -> f32 {
+    if pipeline_ptr.is_null() { return 0.0; }
+    let pipeline = &*(pipeline_ptr as *mut AudioPipeline);
+    pipeline.ai_processor.get_average_latency()
+}
+
+/// Проверяет поддержку NPU
+#[no_mangle]
+pub unsafe extern "C" fn supports_npu(pipeline_ptr: *mut c_void) -> bool {
+    if pipeline_ptr.is_null() { return false; }
+    let pipeline = &*(pipeline_ptr as *mut AudioPipeline);
+    pipeline.supports_neural_engine()
 }
 
 /// Освобождает память, выделенную под аудиоконвейер.

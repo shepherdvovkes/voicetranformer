@@ -201,6 +201,7 @@
 
         // --- Данные для UI ---
         const presets = [
+            { name: 'Голос-Чейнжер', icon: 'mic', type: 'hybrid', description: 'Полная цепочка: DSP → NPU → Post' },
             { name: 'Робот', icon: 'bot', type: 'ai' },
             { name: 'Монстр', icon: 'skull', type: 'dsp' },
             { name: 'Высокий', icon: 'arrow-up-circle', type: 'dsp' },
@@ -236,6 +237,9 @@
                     if (preset.type === 'ai') {
                         // Высокая нагрузка на NPU, минимальная на CPU/GPU
                         currentLoad = { cpu: baseLoad.cpu + 4, gpu: baseLoad.gpu + 2, npu: 25 };
+                    } else if (preset.type === 'hybrid') {
+                        // Гибридная обработка: средняя нагрузка на все компоненты
+                        currentLoad = { cpu: baseLoad.cpu + 8, gpu: baseLoad.gpu + 5, npu: 45 };
                     } else {
                         // Повышенная нагрузка на CPU для DSP, NPU в простое
                         currentLoad = { cpu: baseLoad.cpu + 15, gpu: baseLoad.gpu, npu: baseLoad.npu };
