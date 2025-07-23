@@ -9,7 +9,7 @@ crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
 # Для кросс-платформенного аудио ввода/вывода
-cpal = "0.15"
+cpal = "0.14"
 
 # Для качественного сдвига высоты тона и формант
 signalsmith-stretch = "0.1.1"
@@ -45,7 +45,7 @@ web-sys = { version = "0.3", optional = true, features = [
 
 # macOS/iOS специфичные зависимости
 [target.'cfg(target_os = "macos")'.dependencies]
-coreaudio-rs = "0.11"
+coreaudio-rs = "0.10"
 core-foundation = "0.9"
 objc = "0.2"
 

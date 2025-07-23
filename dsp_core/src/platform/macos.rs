@@ -2,11 +2,7 @@
 use super::PlatformAudio;
 
 #[cfg(target_os = "macos")]
-use coreaudio_rs::audio_unit::macos_helpers::{
-    audio_unit_from_device_id, get_device_id, get_hogging_pid,
-};
-#[cfg(target_os = "macos")]
-use coreaudio_rs::audio_unit::{AudioUnit, Element, SampleFormat, Scope, StreamFormat};
+use coreaudio_rs::audio_unit::{AudioUnit, Element, SampleFormat, Scope, StreamFormat, IOType};
 
 /// Платформо-специфичная реализация для macOS с Core Audio
 pub struct CoreAudioPlatform {
@@ -182,7 +178,7 @@ fn is_apple_silicon() -> bool {
 /// Создает и настраивает AudioUnit для Core Audio
 #[cfg(target_os = "macos")]
 fn create_audio_unit() -> Result<AudioUnit, Box<dyn std::error::Error>> {
-    use coreaudio_rs::audio_unit::{AudioUnit, IOType};
+    // AudioUnit и IOType уже импортированы выше
     
     // Создаем HAL Output Unit (для воспроизведения)
     let mut audio_unit = AudioUnit::new(IOType::HalOutput)?;
@@ -194,22 +190,13 @@ fn create_audio_unit() -> Result<AudioUnit, Box<dyn std::error::Error>> {
         channels: 2, // Стерео
     };
     
-    audio_unit.set_property(
-        kAudioUnitProperty_StreamFormat,
-        Scope::Input,
-        Element::Output,
-        Some(&stream_format),
-    )?;
-    
-    // Инициализируем AudioUnit
-    audio_unit.initialize()?;
+    // Используем новый API для установки формата потока
+    audio_unit.set_stream_format(stream_format)?;
     
     Ok(audio_unit)
 }
 
-// Константы Core Audio (упрощенные версии)
-#[cfg(target_os = "macos")]
-const kAudioUnitProperty_StreamFormat: u32 = 8;
+// Константы больше не нужны - используем высокоуровневый API
 
 /// Core ML интеграция для Apple Silicon
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
