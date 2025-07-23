@@ -1,0 +1,34 @@
+# Rust build artifacts
+/target/
+**/*.rs.bk
+
+# Cargo files
+Cargo.lock
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Debug and profile files
+*.pdb
+*.dSYM/
+
+# Audio test files
+*.wav
+*.mp3
+*.flac
+*.aac
+
+# Local env files
+.env
+.env.local
+
+# Core dumps
+core.*
