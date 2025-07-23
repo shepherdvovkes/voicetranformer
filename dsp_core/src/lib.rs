@@ -13,7 +13,7 @@ use platform::PlatformAudio;
 pub mod ai_effects;
 mod neural_engine;
 use ai_effects::{AIProcessor, AIConfig, AIProcessingMode};
-use neural_engine::{NeuralVoiceProcessor, VoiceEffect, NeuralConfig, QualityPreset};
+use neural_engine::{NeuralVoiceProcessor, VoiceEffect};
 
 /// Статистика производительности системы
 #[derive(Debug, Clone, Default)]
