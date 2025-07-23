@@ -1,6 +1,6 @@
 # Voice Transformer - Server
 
-[![Rust CI](https://github.com/your-username/voice-transformer-server/actions/workflows/rust.yml/badge.svg)](https://github.com/your-username/voice-transformer-server/actions/workflows/rust.yml)
+[![Rust CI](https://github.com/shepherdvovkes/voicetranformer/actions/workflows/rust.yml/badge.svg)](https://github.com/shepherdvovkes/voicetranformer/actions/workflows/rust.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 This repository contains the server-side application for the **Voice Transformer** project. This backend is written in Rust and is designed for high performance, reliability, and security, providing the necessary infrastructure for the real-time voice modification clients.
