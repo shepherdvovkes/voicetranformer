@@ -4,6 +4,10 @@ use atomic_float::AtomicF32;
 use ringbuf::HeapRb;
 use crossbeam_channel::{Receiver, Sender};
 
+// Платформо-специфичные модули
+pub mod platform;
+use platform::PlatformAudio;
+
 /// Типы аудио эффектов
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum EffectType {
@@ -377,6 +381,9 @@ pub struct AudioPipeline {
     pub ai_input_sender: Option<Sender<Vec<f32>>>,
     pub ai_output_receiver: Option<Receiver<Vec<f32>>>,
     
+    // Платформо-специфичная аудио подсистема
+    pub platform_audio: Option<platform::PlatformAudioImpl>,
+    
     // Счетчики и статистика
     pub samples_processed: u64,
     pub is_processing: AtomicBool,
@@ -394,8 +401,37 @@ impl AudioPipeline {
             output_buffer: HeapRb::new(buffer_size * 4),
             ai_input_sender: None,
             ai_output_receiver: None,
+            platform_audio: None,
             samples_processed: 0,
             is_processing: AtomicBool::new(false),
+        }
+    }
+    
+    /// Создает конвейер с автоматической инициализацией платформы
+    pub fn new_with_platform() -> Result<Self, Box<dyn std::error::Error>> {
+        use platform::{PlatformAudio, PlatformAudioImpl};
+        
+        let mut pipeline = Self::new(44100.0, 512);
+        
+        match PlatformAudioImpl::initialize() {
+            Ok(platform_audio) => {
+                let sample_rate = platform_audio.get_sample_rate();
+                let buffer_size = platform_audio.get_buffer_size();
+                
+                println!("🎯 Платформа инициализирована: {}", platform_audio.platform_info());
+                
+                // Обновляем параметры на основе возможностей платформы
+                pipeline.parameters.sample_rate.store(sample_rate, Ordering::Relaxed);
+                pipeline.parameters.buffer_size.store(buffer_size as u32, Ordering::Relaxed);
+                pipeline.platform_audio = Some(platform_audio);
+                
+                Ok(pipeline)
+            }
+            Err(e) => {
+                println!("⚠️  Не удалось инициализировать платформу: {}", e);
+                println!("ℹ️  Используется базовая реализация без платформо-специфичных оптимизаций");
+                Ok(pipeline)
+            }
         }
     }
     
@@ -477,6 +513,39 @@ impl AudioPipeline {
     pub fn stop_processing(&mut self) {
         self.is_processing.store(false, Ordering::Relaxed);
     }
+    
+    /// Получает информацию о платформе
+    pub fn platform_info(&self) -> String {
+        if let Some(ref platform) = self.platform_audio {
+            platform.platform_info()
+        } else {
+            "Базовая реализация (без платформо-специфичных оптимизаций)".to_string()
+        }
+    }
+    
+    /// Проверяет поддержку низкой задержки
+    pub fn supports_low_latency(&self) -> bool {
+        self.platform_audio
+            .as_ref()
+            .map(|p| p.supports_low_latency())
+            .unwrap_or(false)
+    }
+    
+    /// Проверяет, поддерживается ли NPU (только для macOS Apple Silicon)
+    #[cfg(target_os = "macos")]
+    pub fn supports_neural_engine(&self) -> bool {
+        if let Some(ref platform_audio) = self.platform_audio {
+            platform_audio.supports_neural_engine()
+        } else {
+            false
+        }
+    }
+    
+    /// Заглушка для не-macOS платформ
+    #[cfg(not(target_os = "macos"))]
+    pub fn supports_neural_engine(&self) -> bool {
+        false
+    }
 }
 
 /// Создает экземпляр аудиоконвейера и возвращает указатель на него.
@@ -485,6 +554,24 @@ pub extern "C" fn create_pipeline() -> *mut c_void {
     println!("Rust: create_pipeline() вызван.");
     let pipeline = Box::new(AudioPipeline::new(44100.0, 512));
     Box::into_raw(pipeline) as *mut c_void
+}
+
+/// Создает экземпляр аудиоконвейера с платформо-специфичной инициализацией.
+#[no_mangle]
+pub extern "C" fn create_pipeline_with_platform() -> *mut c_void {
+    println!("Rust: create_pipeline_with_platform() вызван.");
+    match AudioPipeline::new_with_platform() {
+        Ok(pipeline) => {
+            println!("Rust: Платформа успешно инициализирована");
+            Box::into_raw(Box::new(pipeline)) as *mut c_void
+        }
+        Err(e) => {
+            println!("Rust: Ошибка инициализации платформы: {}", e);
+            // Возвращаем базовую реализацию
+            let pipeline = Box::new(AudioPipeline::new(44100.0, 512));
+            Box::into_raw(pipeline) as *mut c_void
+        }
+    }
 }
 
 /// Обрабатывает блок аудиоданных.
@@ -551,5 +638,171 @@ pub unsafe extern "C" fn destroy_pipeline(pipeline_ptr: *mut c_void) {
     if !pipeline_ptr.is_null() {
         println!("Rust: destroy_pipeline() вызван.");
         drop(Box::from_raw(pipeline_ptr as *mut AudioPipeline));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_audio_pipeline_creation() {
+        let pipeline = AudioPipeline::new(44100.0, 512);
+        assert_eq!(pipeline.samples_processed, 0);
+        assert!(!pipeline.is_processing.load(Ordering::Relaxed));
+    }
+    
+    #[test]
+    fn test_platform_initialization() {
+        // Тестируем создание конвейера с платформой
+        let result = AudioPipeline::new_with_platform();
+        assert!(result.is_ok(), "Не удалось создать конвейер с платформой");
+        
+        let pipeline = result.unwrap();
+        println!("Платформа: {}", pipeline.platform_info());
+        println!("Поддержка низкой задержки: {}", pipeline.supports_low_latency());
+        println!("Поддержка Neural Engine: {}", pipeline.supports_neural_engine());
+    }
+
+    #[test]
+    fn test_effects() {
+        let mut pipeline = AudioPipeline::new(44100.0, 512);
+        pipeline.start_processing();
+        
+        // Тестируем различные эффекты
+        let effects = [
+            EffectType::None,
+            EffectType::Monster,
+            EffectType::HighPitch,
+            EffectType::Cave,
+            EffectType::Radio,
+            EffectType::Cathedral,
+            EffectType::Underwater,
+            EffectType::Robot,
+            EffectType::Demon,
+            EffectType::Alien,
+        ];
+        
+        // Создаем тестовый сигнал
+        let input = vec![0.5f32; 100];
+        let mut output = vec![0.0f32; 100];
+        
+        for effect in effects.iter() {
+            pipeline.set_effect(*effect);
+            pipeline.process_block(&input, &mut output);
+            
+            // Проверяем, что выходной сигнал был изменен
+            assert!(output.iter().any(|&x| x != 0.0));
+        }
+    }
+
+    #[test]
+    fn test_noise_generators() {
+        let mut pipeline = AudioPipeline::new(44100.0, 512);
+        pipeline.start_processing();
+        
+        let noise_types = [NoiseType::White, NoiseType::Pink, NoiseType::Brown];
+        let input = vec![0.0f32; 100]; // Тишина на входе
+        let mut output = vec![0.0f32; 100];
+        
+        for noise_type in noise_types.iter() {
+            pipeline.set_noise(*noise_type, 0.1);
+            pipeline.process_block(&input, &mut output);
+            
+            // Проверяем, что был добавлен шум
+            let rms = calculate_rms(&output);
+            assert!(rms > 0.0, "Шум не был добавлен для {:?}", noise_type);
+        }
+    }
+
+    #[test]
+    fn test_filters() {
+        let mut filter = BiquadFilter::new();
+        
+        // Тест низкочастотного фильтра
+        filter.lowpass(1000.0, 44100.0, 1.0);
+        let output = filter.process(1.0);
+        assert!(output.is_finite());
+        
+        // Тест высокочастотного фильтра
+        filter.highpass(1000.0, 44100.0, 1.0);
+        let output = filter.process(1.0);
+        assert!(output.is_finite());
+        
+        // Тест полосового фильтра
+        filter.bandpass(1000.0, 44100.0, 1.0);
+        let output = filter.process(1.0);
+        assert!(output.is_finite());
+    }
+
+    #[test]
+    fn test_delay_effect() {
+        let mut delay = DelayEffect::new(4410); // 100 мс при 44100 Гц
+        delay.set_delay_time(0.1, 44100.0);
+        delay.set_feedback(0.5);
+        delay.set_mix(0.3);
+        
+        let output = delay.process(1.0);
+        assert!(output.is_finite());
+    }
+
+    #[test]
+    fn test_noise_generator() {
+        let mut generator = NoiseGenerator::new();
+        
+        // Тест белого шума
+        generator.noise_type = NoiseType::White;
+        generator.level = 1.0;
+        let white_noise = generator.generate_sample();
+        assert!(white_noise.is_finite());
+        
+        // Тест розового шума
+        generator.noise_type = NoiseType::Pink;
+        let pink_noise = generator.generate_sample();
+        assert!(pink_noise.is_finite());
+        
+        // Тест коричневого шума
+        generator.noise_type = NoiseType::Brown;
+        let brown_noise = generator.generate_sample();
+        assert!(brown_noise.is_finite());
+    }
+
+    #[test]
+    fn test_c_ffi_interface() {
+        unsafe {
+            // Создаем конвейер через C интерфейс
+            let pipeline_ptr = create_pipeline();
+            assert!(!pipeline_ptr.is_null());
+            
+            // Тестируем установку эффекта
+            set_effect(pipeline_ptr, EffectType::Monster as u32);
+            
+            // Тестируем установку шума
+            set_noise(pipeline_ptr, NoiseType::White as u32, 0.1);
+            
+            // Тестируем запуск обработки
+            start_processing(pipeline_ptr);
+            
+            // Тестируем обработку аудио
+            let input = vec![0.5f32; 10];
+            let mut output = vec![0.0f32; 10];
+            process_audio(pipeline_ptr, input.as_ptr(), output.as_mut_ptr(), 10);
+            
+            // Тестируем остановку обработки
+            stop_processing(pipeline_ptr);
+            
+            // Освобождаем память
+            destroy_pipeline(pipeline_ptr);
+        }
+    }
+
+    /// Вычисляет RMS (среднеквадратичное значение) сигнала
+    fn calculate_rms(samples: &[f32]) -> f32 {
+        if samples.is_empty() {
+            return 0.0;
+        }
+        
+        let sum_squares: f32 = samples.iter().map(|&x| x * x).sum();
+        (sum_squares / samples.len() as f32).sqrt()
     }
 }
